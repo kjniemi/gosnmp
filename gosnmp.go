@@ -217,6 +217,12 @@ func (x *GoSNMP) mkSnmpPacket(pdutype PDUType, nonRepeaters uint8, maxRepetition
 	}
 }
 
+// SendTrap sends a SNMP Trap(v2c/v3 only)
+func (x *GoSNMP) SendTrap(pdus []SnmpPDU) (result *SnmpPacket, err error) {
+	packetOut := x.mkSnmpPacket(SNMPV2Trap, 0, 0)
+	return x.send(pdus, packetOut)
+}
+
 // Get sends an SNMP GET request
 func (x *GoSNMP) Get(oids []string) (result *SnmpPacket, err error) {
 	oidCount := len(oids)
