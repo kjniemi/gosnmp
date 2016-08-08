@@ -320,6 +320,16 @@ func marshalInt16(value int) (rs []byte) {
 	return
 }
 
+func marshalInteger(v interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, v)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+
 // marshalLength builds a byte representation of length
 //
 // http://luca.ntop.org/Teaching/Appunti/asn1.html
