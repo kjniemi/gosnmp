@@ -194,7 +194,8 @@ func (x *GoSNMP) sendOneRequest(pdus []SnmpPDU, packetOut *SnmpPacket) (result *
 		err = nil
 
 		reqDeadline := time.Now().Add(x.Timeout / time.Duration(x.Retries+1))
-		x.Conn.SetDeadline(reqDeadline)
+		err = x.Conn.SetDeadline(reqDeadline)
+		x.Check(err)
 
 		// Request ID is an atomic counter (started at a random value)
 		reqID := atomic.AddUint32(&(x.requestID), 1) // TODO: fix overflows
@@ -426,29 +427,35 @@ func (x *GoSNMP) send(pdus []SnmpPDU, packetOut *SnmpPacket) (result *SnmpPacket
 // marshal an SNMP message
 func (packet *SnmpPacket) marshalMsg(pdus []SnmpPDU,
 	pdutype PDUType, msgid uint32, requestid uint32) ([]byte, error) {
+	var err error
 	var authParamStart uint32
 	buf := new(bytes.Buffer)
 
 	// version
-	buf.Write([]byte{2, 1, byte(packet.Version)})
-
+	_, err = buf.Write([]byte{2, 1, byte(packet.Version)})
+	packet.Check(err)
 	if packet.Version != Version3 {
 		// community
-		buf.Write([]byte{4, uint8(len(packet.Community))})
-		buf.WriteString(packet.Community)
+		_, err = buf.Write([]byte{4, uint8(len(packet.Community))})
+		packet.Check(err)
+		_, err = buf.WriteString(packet.Community)
+		packet.Check(err)
 		// pdu
 		pdu, err := packet.marshalPDU(pdus, requestid)
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(pdu)
+		_, err = buf.Write(pdu)
+		packet.Check(err)
 	} else {
 		header, err := packet.marshalSnmpV3Header(msgid)
 		if err != nil {
 			return nil, err
 		}
-		buf.Write([]byte{byte(Sequence), byte(len(header))})
-		buf.Write(header)
+		_, err = buf.Write([]byte{byte(Sequence), byte(len(header))})
+		packet.Check(err)
+		_, err = buf.Write(header)
+		packet.Check(err)
 
 		var securityParameters []byte
 		if packet.SecurityModel == UserSecurityModel {
@@ -458,33 +465,40 @@ func (packet *SnmpPacket) marshalMsg(pdus []SnmpPDU,
 			}
 		}
 
-		buf.Write([]byte{byte(OctetString)})
+		_, err = buf.Write([]byte{byte(OctetString)})
+		packet.Check(err)
 		secParamLen, err := marshalLength(len(securityParameters))
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(secParamLen)
+		_, err = buf.Write(secParamLen)
+		packet.Check(err)
 		authParamStart += uint32(buf.Len())
-		buf.Write(securityParameters)
+		_, err = buf.Write(securityParameters)
+		packet.Check(err)
 
 		scopedPdu, err := packet.marshalSnmpV3ScopedPDU(pdus, requestid)
 		if err != nil {
 			return nil, err
 		}
-		buf.Write(scopedPdu)
+		_, err = buf.Write(scopedPdu)
+		packet.Check(err)
 	}
 
 	// build up resulting msg - sequence, length then the tail (buf)
 	msg := new(bytes.Buffer)
-	msg.WriteByte(byte(Sequence))
+	err = msg.WriteByte(byte(Sequence))
+	packet.Check(err)
 
 	bufLengthBytes, err2 := marshalLength(buf.Len())
 	if err2 != nil {
 		return nil, err2
 	}
-	msg.Write(bufLengthBytes)
+	_, err = msg.Write(bufLengthBytes)
+	packet.Check(err)
 	authParamStart += uint32(msg.Len())
-	buf.WriteTo(msg) // reverse logic - want to do msg.Write(buf)
+	_, err = buf.WriteTo(msg) // reverse logic - want to do msg.Write(buf)
+	packet.Check(err)
 
 	authenticatedMessage, err := packet.authenticate(msg.Bytes(), authParamStart)
 	if err != nil {
@@ -498,29 +512,36 @@ func (packet *SnmpPacket) marshalMsg(pdus []SnmpPDU,
 func (packet *SnmpPacket) marshalSnmpV3Header(msgid uint32) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
+	var err error
 	// msg id
-	buf.Write([]byte{byte(Integer), 4})
-	err := binary.Write(buf, binary.BigEndian, msgid)
+	_, err = buf.Write([]byte{byte(Integer), 4})
+	packet.Check(err)
+	err = binary.Write(buf, binary.BigEndian, msgid)
 	if err != nil {
 		return nil, err
 	}
 
 	// maximum response msg size
 	maxmsgsize := marshalUvarInt(rxBufSize)
-	buf.Write([]byte{byte(Integer), byte(len(maxmsgsize))})
-	buf.Write(maxmsgsize)
+	_, err = buf.Write([]byte{byte(Integer), byte(len(maxmsgsize))})
+	packet.Check(err)
+	_, err = buf.Write(maxmsgsize)
+	packet.Check(err)
 
 	// msg flags
-	buf.Write([]byte{byte(OctetString), 1, byte(packet.MsgFlags)})
+	_, err = buf.Write([]byte{byte(OctetString), 1, byte(packet.MsgFlags)})
+	packet.Check(err)
 
 	// msg security model
-	buf.Write([]byte{byte(Integer), 1, byte(packet.SecurityModel)})
+	_, err = buf.Write([]byte{byte(Integer), 1, byte(packet.SecurityModel)})
+	packet.Check(err)
 
 	return buf.Bytes(), nil
 }
 
 // marshal a snmp version 3 security parameters field for the User Security Model
 func (packet *SnmpPacket) marshalSnmpV3UsmSecurityParameters() ([]byte, uint32, error) {
+	var err error
 	var buf bytes.Buffer
 	var authParamStart uint32
 
@@ -530,44 +551,57 @@ func (packet *SnmpPacket) marshalSnmpV3UsmSecurityParameters() ([]byte, uint32, 
 	}
 
 	// msgAuthoritativeEngineID
-	buf.Write([]byte{byte(OctetString), byte(len(secParams.AuthoritativeEngineID))})
-	buf.WriteString(secParams.AuthoritativeEngineID)
+	_, err = buf.Write([]byte{byte(OctetString), byte(len(secParams.AuthoritativeEngineID))})
+	packet.Check(err)
+	_, err = buf.WriteString(secParams.AuthoritativeEngineID)
+	packet.Check(err)
 
 	// msgAuthoritativeEngineBoots
 	msgAuthoritativeEngineBoots := marshalUvarInt(secParams.AuthoritativeEngineBoots)
-	buf.Write([]byte{byte(Integer), byte(len(msgAuthoritativeEngineBoots))})
-	buf.Write(msgAuthoritativeEngineBoots)
+	_, err = buf.Write([]byte{byte(Integer), byte(len(msgAuthoritativeEngineBoots))})
+	packet.Check(err)
+	_, err = buf.Write(msgAuthoritativeEngineBoots)
+	packet.Check(err)
 
 	// msgAuthoritativeEngineTime
 	msgAuthoritativeEngineTime := marshalUvarInt(secParams.AuthoritativeEngineTime)
-	buf.Write([]byte{byte(Integer), byte(len(msgAuthoritativeEngineTime))})
-	buf.Write(msgAuthoritativeEngineTime)
+	_, err = buf.Write([]byte{byte(Integer), byte(len(msgAuthoritativeEngineTime))})
+	packet.Check(err)
+	_, err = buf.Write(msgAuthoritativeEngineTime)
+	packet.Check(err)
 
 	// msgUserName
-	buf.Write([]byte{byte(OctetString), byte(len(secParams.UserName))})
-	buf.WriteString(secParams.UserName)
+	_, err = buf.Write([]byte{byte(OctetString), byte(len(secParams.UserName))})
+	packet.Check(err)
+	_, err = buf.WriteString(secParams.UserName)
+	packet.Check(err)
 
 	authParamStart = uint32(buf.Len() + 2) // +2 indicates PDUType + Length
 	// msgAuthenticationParameters
 	if packet.MsgFlags&AuthNoPriv > 0 {
-		buf.Write([]byte{byte(OctetString), 12,
+		_, err = buf.Write([]byte{byte(OctetString), 12,
 			0, 0, 0, 0,
 			0, 0, 0, 0,
 			0, 0, 0, 0})
 	} else {
-		buf.Write([]byte{byte(OctetString), 0})
+		_, err = buf.Write([]byte{byte(OctetString), 0})
 	}
+	packet.Check(err)
 	// msgPrivacyParameters
 	if packet.MsgFlags&AuthPriv > AuthNoPriv {
 		privlen, err := marshalLength(len(secParams.PrivacyParameters))
 		if err != nil {
 			return nil, 0, err
 		}
-		buf.Write([]byte{byte(OctetString)})
-		buf.Write(privlen)
-		buf.Write(secParams.PrivacyParameters)
+		_, err = buf.Write([]byte{byte(OctetString)})
+		packet.Check(err)
+		_, err = buf.Write(privlen)
+		packet.Check(err)
+		_, err = buf.Write(secParams.PrivacyParameters)
+		packet.Check(err)
 	} else {
-		buf.Write([]byte{byte(OctetString), 0})
+		_, err = buf.Write([]byte{byte(OctetString), 0})
+		packet.Check(err)
 	}
 
 	// wrap security parameters in a sequence
@@ -663,49 +697,60 @@ func (packet *SnmpPacket) prepareSnmpV3ScopedPDU(pdus []SnmpPDU, requestid uint3
 	if err != nil {
 		return nil, err
 	}
-	buf.Write(append([]byte{byte(OctetString)}, idlen...))
-	buf.WriteString(packet.ContextEngineID)
+	_, err = buf.Write(append([]byte{byte(OctetString)}, idlen...))
+	packet.Check(err)
+	_, err = buf.WriteString(packet.ContextEngineID)
+	packet.Check(err)
 
 	//ContextName
 	namelen, err := marshalLength(len(packet.ContextName))
 	if err != nil {
 		return nil, err
 	}
-	buf.Write(append([]byte{byte(OctetString)}, namelen...))
-	buf.WriteString(packet.ContextName)
+	_, err = buf.Write(append([]byte{byte(OctetString)}, namelen...))
+	packet.Check(err)
+	_, err = buf.WriteString(packet.ContextName)
+	packet.Check(err)
 
 	data, err := packet.marshalPDU(pdus, requestid)
 	if err != nil {
 		return nil, err
 	}
-	buf.Write(data)
+	_, err = buf.Write(data)
+	packet.Check(err)
 	return buf.Bytes(), nil
 }
 
 // marshal a PDU
 func (packet *SnmpPacket) marshalPDU(pdus []SnmpPDU, requestid uint32) ([]byte, error) {
 	buf := new(bytes.Buffer)
+	var err error
 
 	// requestid
-	buf.Write([]byte{2, 4})
-	err := binary.Write(buf, binary.BigEndian, requestid)
+	_, err = buf.Write([]byte{2, 4})
+	packet.Check(err)
+	err = binary.Write(buf, binary.BigEndian, requestid)
 	if err != nil {
 		return nil, err
 	}
 
 	if packet.PDUType == GetBulkRequest {
 		// non repeaters
-		buf.Write([]byte{2, 1, packet.NonRepeaters})
+		_, err = buf.Write([]byte{2, 1, packet.NonRepeaters})
+		packet.Check(err)
 
 		// max repetitions
-		buf.Write([]byte{2, 1, packet.MaxRepetitions})
+		_, err = buf.Write([]byte{2, 1, packet.MaxRepetitions})
+		packet.Check(err)
 	} else { // get and getnext have same packet format
 
 		// error
-		buf.Write([]byte{2, 1, 0})
+		_, err = buf.Write([]byte{2, 1, 0})
+		packet.Check(err)
 
 		// error index
-		buf.Write([]byte{2, 1, 0})
+		_, err = buf.Write([]byte{2, 1, 0})
+		packet.Check(err)
 	}
 
 	// varbind list
@@ -713,19 +758,23 @@ func (packet *SnmpPacket) marshalPDU(pdus []SnmpPDU, requestid uint32) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	buf.Write(vbl)
+	_, err = buf.Write(vbl)
+	packet.Check(err)
 
 	// build up resulting pdu - request type, length, then the tail (buf)
 	pdu := new(bytes.Buffer)
-	pdu.WriteByte(byte(packet.PDUType))
+	err = pdu.WriteByte(byte(packet.PDUType))
+	packet.Check(err)
 
 	bufLengthBytes, err2 := marshalLength(buf.Len())
 	if err2 != nil {
 		return nil, err2
 	}
-	pdu.Write(bufLengthBytes)
+	_, err = pdu.Write(bufLengthBytes)
+	packet.Check(err)
 
-	buf.WriteTo(pdu) // reverse logic - want to do pdu.Write(buf)
+	_, err = buf.WriteTo(pdu) // reverse logic - want to do pdu.Write(buf)
+	packet.Check(err)
 	return pdu.Bytes(), nil
 }
 
@@ -738,7 +787,8 @@ func (packet *SnmpPacket) marshalVBL(pdus []SnmpPDU) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		vblBuf.Write(vb)
+		_, err = vblBuf.Write(vb)
+		packet.Check(err)
 	}
 
 	vblBytes := vblBuf.Bytes()
@@ -767,16 +817,22 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 	switch pdu.Type {
 
 	case Null:
-		pduBuf.Write([]byte{byte(Sequence), byte(len(oid) + 4)})
-		pduBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
-		pduBuf.Write(oid)
-		pduBuf.Write([]byte{Null, 0x00})
+		_, err = pduBuf.Write([]byte{byte(Sequence), byte(len(oid) + 4)})
+		pdu.Check(err)
+		_, err = pduBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		pdu.Check(err)
+		_, err = pduBuf.Write(oid)
+		pdu.Check(err)
+		_, err = pduBuf.Write([]byte{Null, 0x00})
+		pdu.Check(err)
 
 	case Integer:
 		// TODO tests currently only cover positive integers
 		// Oid
-		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
-		tmpBuf.Write(oid)
+		_, err = tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		pdu.Check(err)
+		_, err = tmpBuf.Write(oid)
+		pdu.Check(err)
 		// Integer
 		var intBytes []byte
 		switch value := pdu.Value.(type) {
@@ -787,17 +843,24 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		default:
 			return nil, fmt.Errorf("Unable to marshal PDU Integer; not byte or int.")
 		}
-		tmpBuf.Write([]byte{byte(Integer), byte(len(intBytes))})
-		tmpBuf.Write(intBytes)
+		_, err = tmpBuf.Write([]byte{byte(Integer), byte(len(intBytes))})
+		pdu.Check(err)
+		_, err = tmpBuf.Write(intBytes)
+		pdu.Check(err)
 		// Sequence, length of oid + integer, then oid/integer data
-		pduBuf.WriteByte(byte(Sequence))
-		pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
-		pduBuf.Write(tmpBuf.Bytes())
+		err = pduBuf.WriteByte(byte(Sequence))
+		pdu.Check(err)
+		err = pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
+		pdu.Check(err)
+		_, err = pduBuf.Write(tmpBuf.Bytes())
+		pdu.Check(err)
 
 	case OctetString:
 		//Oid
-		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
-		tmpBuf.Write(oid)
+		_, err = tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		pdu.Check(err)
+		_, err = tmpBuf.Write(oid)
+		pdu.Check(err)
 		//OctetString
 		var octetStringBytes []byte
 		switch value := pdu.Value.(type) {
@@ -808,12 +871,17 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		default:
 			return nil, fmt.Errorf("Unable to marshal PDU OctetString; not []byte or String.")
 		}
-		tmpBuf.Write([]byte{byte(OctetString), byte(len(octetStringBytes))})
-		tmpBuf.Write(octetStringBytes)
+		_, err = tmpBuf.Write([]byte{byte(OctetString), byte(len(octetStringBytes))})
+		pdu.Check(err)
+		_, err = tmpBuf.Write(octetStringBytes)
+		pdu.Check(err)
 		// Sequence, length of oid + octetstring, then oid/octetstring data
-		pduBuf.WriteByte(byte(Sequence))
-		pduBuf.WriteByte(byte(len(oid) + len(octetStringBytes) + 4))
-		pduBuf.Write(tmpBuf.Bytes())
+		err = pduBuf.WriteByte(byte(Sequence))
+		pdu.Check(err)
+		err = pduBuf.WriteByte(byte(len(oid) + len(octetStringBytes) + 4))
+		pdu.Check(err)
+		_, err = pduBuf.Write(tmpBuf.Bytes())
+		pdu.Check(err)
 
 	default:
 		return nil, fmt.Errorf("Unable to marshal PDU: unknown BER type %d", pdu.Type)
