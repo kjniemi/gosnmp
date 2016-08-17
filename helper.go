@@ -236,8 +236,10 @@ func (x *GoSNMP) decodeValue(data []byte, msg string) (retVal *variable, err err
 
 // dump bytes in a format similar to Wireshark
 func (x *GoSNMP) dumpBytes1(data []byte, msg string, maxlength int) {
+	var err error
 	var buffer bytes.Buffer
-	buffer.WriteString(msg)
+	_, err = buffer.WriteString(msg)
+	x.Check(err)
 	length := maxlength
 	if len(data) < maxlength {
 		length = len(data)
@@ -245,36 +247,60 @@ func (x *GoSNMP) dumpBytes1(data []byte, msg string, maxlength int) {
 	length *= 2 //One Byte Symobls Two Hex
 	hexStr := hex.EncodeToString(data)
 	for i := 0; length >= i+16; i += 16 {
-		buffer.WriteString("\n")
-		buffer.WriteString(strconv.Itoa(i / 2))
-		buffer.WriteString("\t")
-		buffer.WriteString(hexStr[i : i+2])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+2 : i+4])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+4 : i+6])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+6 : i+8])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+8 : i+10])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+10 : i+12])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+12 : i+14])
-		buffer.WriteString(" ")
-		buffer.WriteString(hexStr[i+14 : i+16])
+		_, err = buffer.WriteString("\n")
+		x.Check(err)
+		_, err = buffer.WriteString(strconv.Itoa(i / 2))
+		x.Check(err)
+		_, err = buffer.WriteString("\t")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i : i+2])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+2 : i+4])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+4 : i+6])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+6 : i+8])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+8 : i+10])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+10 : i+12])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+12 : i+14])
+		x.Check(err)
+		_, err = buffer.WriteString(" ")
+		x.Check(err)
+		_, err = buffer.WriteString(hexStr[i+14 : i+16])
+		x.Check(err)
 	}
 	leftOver := length % 16
 	if leftOver != 0 {
-		buffer.WriteString("\n")
-		buffer.WriteString(strconv.Itoa((length - leftOver) / 2))
-		buffer.WriteString("\t")
+		_, err = buffer.WriteString("\n")
+		x.Check(err)
+		_, err = buffer.WriteString(strconv.Itoa((length - leftOver) / 2))
+		x.Check(err)
+		_, err = buffer.WriteString("\t")
+		x.Check(err)
 		for i := 0; leftOver >= i+2; i += 2 {
-			buffer.WriteString(hexStr[i : i+2])
-			buffer.WriteString(" ")
+			_, err = buffer.WriteString(hexStr[i : i+2])
+			x.Check(err)
+			_, err = buffer.WriteString(" ")
+			x.Check(err)
 		}
 	}
-	buffer.WriteString("\n")
+	_, err = buffer.WriteString("\n")
+	x.Check(err)
 	if x.loggingEnabled {
 		x.Logger.Print(buffer.String())
 	}
