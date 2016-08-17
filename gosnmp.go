@@ -103,7 +103,7 @@ type GoSNMP struct {
 	msgID uint32
 }
 
-// The default connection settings
+// Default is the default connection settings
 var Default = &GoSNMP{
 	Port:      161,
 	Community: "public",
