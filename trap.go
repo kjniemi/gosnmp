@@ -5,9 +5,34 @@
 package gosnmp
 
 import (
+	"fmt"
 	"log"
 	"net"
 )
+
+//
+// Sending Traps ie GoSNMP acting as an Agent
+//
+
+// SendTrap sends a SNMP Trap(currently v2c/v3 only)/
+func (x *GoSNMP) SendTrap(pdus []SnmpPDU) (result *SnmpPacket, err error) {
+	switch x.Version {
+	case Version2c, Version3:
+		// x.mkSnmpPacket doesn't exist
+		// will send even work??
+		packetOut := x.mkSnmpPacket(SNMPv2Trap, 0, 0)
+		return x.send(pdus, packetOut)
+	default:
+		err = fmt.Errorf("SendTrap doesn't support %s", x.Version)
+		return nil, err
+	}
+}
+
+//
+// Receiving Traps ie GoSNMP acting as an NMS
+//
+// GoSNMP.unmarshal() currently only handles SNMPv2Trap (ie v2c, v3)
+//
 
 // A TrapListener defineds parameters for running a SNMP Trap receiver.
 // nil values will be replaced by default values.

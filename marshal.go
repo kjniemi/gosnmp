@@ -149,10 +149,10 @@ const (
 	GetNextRequest PDUType = 0xa1
 	GetResponse    PDUType = 0xa2
 	SetRequest     PDUType = 0xa3
-	Trap           PDUType = 0xa4
+	Trap           PDUType = 0xa4 // v1
 	GetBulkRequest PDUType = 0xa5
 	InformRequest  PDUType = 0xa6
-	SNMPV2Trap     PDUType = 0xa7
+	SNMPv2Trap     PDUType = 0xa7 // v2c, v3
 	Report         PDUType = 0xa8
 )
 
@@ -772,6 +772,16 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		pduBuf.Write(oid)
 		pduBuf.Write([]byte{Null, 0x00})
 
+	/*
+		NUMBERS:
+
+		Integer32 and INTEGER:
+		-2^31 and 2^31-1 inclusive (-2147483648 to 2147483647 decimal)
+
+		Counter32, Gauge32, TimeTicks, Unsigned32:
+		non-negative integer, maximum value of 2^32-1 (4294967295 decimal)
+	*/
+
 	case Integer:
 		// TODO tests currently only cover positive integers
 		// Oid
@@ -783,11 +793,26 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		case byte:
 			intBytes = []byte{byte(pdu.Value.(int))}
 		case int:
-			intBytes = marshalInt16(value)
+			intBytes, err = marshalInt16(value)
+			pdu.Check(err)
 		default:
 			return nil, fmt.Errorf("Unable to marshal PDU Integer; not byte or int.")
 		}
 		tmpBuf.Write([]byte{byte(Integer), byte(len(intBytes))})
+		tmpBuf.Write(intBytes)
+		// Sequence, length of oid + integer, then oid/integer data
+		pduBuf.WriteByte(byte(Sequence))
+		pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
+		pduBuf.Write(tmpBuf.Bytes())
+
+	case TimeTicks:
+		// Oid
+		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		tmpBuf.Write(oid)
+		// Number
+		intBytes, err := marshalInteger(pdu)
+		pdu.Check(err)
+		tmpBuf.Write([]byte{byte(TimeTicks), byte(len(intBytes))})
 		tmpBuf.Write(intBytes)
 		// Sequence, length of oid + integer, then oid/integer data
 		pduBuf.WriteByte(byte(Sequence))
@@ -816,7 +841,7 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		pduBuf.Write(tmpBuf.Bytes())
 
 	default:
-		return nil, fmt.Errorf("Unable to marshal PDU: unknown BER type %d", pdu.Type)
+		return nil, fmt.Errorf("Unable to marshal PDU: unknown BER type %#x", pdu.Type)
 	}
 
 	return pduBuf.Bytes(), nil
@@ -1134,7 +1159,7 @@ func (x *GoSNMP) unmarshal(packet []byte, response *SnmpPacket) error {
 	requestType := PDUType(packet[cursor])
 	switch requestType {
 	// known, supported types
-	case GetResponse, GetNextRequest, GetBulkRequest, Report, SNMPV2Trap:
+	case GetResponse, GetNextRequest, GetBulkRequest, Report, SNMPv2Trap:
 		response, err = x.unmarshalResponse(packet[cursor:], response, length, requestType)
 		if err != nil {
 			return fmt.Errorf("Error in unmarshalResponse: %s", err.Error())
@@ -1147,7 +1172,6 @@ func (x *GoSNMP) unmarshal(packet []byte, response *SnmpPacket) error {
 
 func (x *GoSNMP) unmarshalResponse(packet []byte, response *SnmpPacket, length int, requestType PDUType) (*SnmpPacket, error) {
 	cursor := 0
-	x.dumpBytes1(packet, "SNMP Packet is GET RESPONSE", 16)
 	response.PDUType = requestType
 
 	getResponseLength, cursor := parseLength(packet)
@@ -1226,7 +1250,6 @@ func (x *GoSNMP) unmarshalResponse(packet []byte, response *SnmpPacket, length i
 func (x *GoSNMP) unmarshalVBL(packet []byte, response *SnmpPacket,
 	length int) (*SnmpPacket, error) {
 
-	x.dumpBytes1(packet, "\n=== unmarshalVBL()", 32)
 	var cursor, cursorInc int
 	var vblLength int
 	if packet[cursor] != 0x30 {
@@ -1250,7 +1273,6 @@ func (x *GoSNMP) unmarshalVBL(packet []byte, response *SnmpPacket,
 
 	// Loop & parse Varbinds
 	for cursor < vblLength {
-		x.dumpBytes1(packet[cursor:], fmt.Sprintf("\nSTARTING a varbind. Cursor %d", cursor), 32)
 		if packet[cursor] != 0x30 {
 			return nil, fmt.Errorf("Expected a sequence when unmarshalling a VB, got %x", packet[cursor])
 		}

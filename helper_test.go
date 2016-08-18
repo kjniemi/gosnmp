@@ -32,3 +32,29 @@ func BenchmarkOidToString(b *testing.B) {
 		oidToString(oid)
 	}
 }
+
+type testsMarshalTimeticksT struct {
+	value     uint32
+	goodBytes []byte
+}
+
+var testsMarshalTimeticks = []testsMarshalTimeticksT{
+	{0, []byte{0x00}},
+	{2, []byte{0x02}},                          // 2
+	{257, []byte{0x01, 0x01}},                  // FF + 2
+	{65537, []byte{0x01, 0x00, 0x01}},          // FFFF + 2
+	{16777217, []byte{0x01, 0x00, 0x00, 0x01}}, // FFFFFF + 2
+	{18542501, []byte{0x01, 0x1a, 0xef, 0xa5}},
+}
+
+func TestMarshalTimeticks(t *testing.T) {
+	for i, test := range testsMarshalTimeticks {
+		result, err := marshalTimeticks(test.value)
+		if err != nil {
+			t.Errorf("%d: expected %0x got err %v", i, test.goodBytes, err)
+		}
+		if !checkByteEquality2(test.goodBytes, result) {
+			t.Errorf("%d: expected %0x got %0x", i, test.goodBytes, result)
+		}
+	}
+}
