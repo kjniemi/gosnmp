@@ -831,9 +831,11 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		pduBuf.Write(tmpBuf.Bytes())
 
 	case OctetString:
+
 		//Oid
 		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
 		tmpBuf.Write(oid)
+
 		//OctetString
 		var octetStringBytes []byte
 		switch value := pdu.Value.(type) {
@@ -846,13 +848,32 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		}
 		tmpBuf.Write([]byte{byte(OctetString), byte(len(octetStringBytes))})
 		tmpBuf.Write(octetStringBytes)
+
 		// Sequence, length of oid + octetstring, then oid/octetstring data
 		pduBuf.WriteByte(byte(Sequence))
 		pduBuf.WriteByte(byte(len(oid) + len(octetStringBytes) + 4))
 		pduBuf.Write(tmpBuf.Bytes())
 
+	case ObjectIdentifier:
+
+		//Oid
+		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		tmpBuf.Write(oid)
+		value := pdu.Value.(string)
+		oidBytes, err := marshalOID(value)
+		pdu.Check(err)
+
+		//Oid data
+		tmpBuf.Write([]byte{byte(pdu.Type), byte(len(oidBytes))})
+		tmpBuf.Write(oidBytes)
+
+		// Sequence, length of oid + oid, then oid/oid data
+		pduBuf.WriteByte(byte(Sequence))
+		pduBuf.WriteByte(byte(len(oid) + len(oidBytes) + 4))
+		pduBuf.Write(tmpBuf.Bytes())
+
 	default:
-		return nil, fmt.Errorf("Unable to marshal PDU: unknown BER type %#x", pdu.Type)
+		return nil, fmt.Errorf("Unable to marshal PDU: unknown BER type %q", pdu.Type)
 	}
 
 	return pduBuf.Bytes(), nil
