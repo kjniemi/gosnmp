@@ -787,6 +787,7 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		// Oid
 		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
 		tmpBuf.Write(oid)
+
 		// Integer
 		var intBytes []byte
 		switch value := pdu.Value.(type) {
@@ -800,6 +801,7 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		}
 		tmpBuf.Write([]byte{byte(Integer), byte(len(intBytes))})
 		tmpBuf.Write(intBytes)
+
 		// Sequence, length of oid + integer, then oid/integer data
 		pduBuf.WriteByte(byte(Sequence))
 		pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
@@ -809,11 +811,19 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		// Oid
 		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
 		tmpBuf.Write(oid)
+
 		// Number
-		intBytes, err := marshalInteger(pdu)
-		pdu.Check(err)
-		tmpBuf.Write([]byte{byte(TimeTicks), byte(len(intBytes))})
+		var intBytes []byte
+		switch value := pdu.Value.(type) {
+		case uint32:
+			intBytes, err = marshalTimeticks(value)
+			pdu.Check(err)
+		default:
+			return nil, fmt.Errorf("Unable to marshal PDU TimeTicks; unknown type")
+		}
+		tmpBuf.Write([]byte{byte(pdu.Type), byte(len(intBytes))})
 		tmpBuf.Write(intBytes)
+
 		// Sequence, length of oid + integer, then oid/integer data
 		pduBuf.WriteByte(byte(Sequence))
 		pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
