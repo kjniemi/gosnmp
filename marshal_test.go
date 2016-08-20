@@ -200,7 +200,7 @@ var testsEnmarshal = []testsEnmarshalT{
 		Version2c,
 		"public",
 		SNMPv2Trap,
-		1271509950,
+		1918693186,
 		0,
 		trap1,
 		"trap1",
