@@ -486,6 +486,11 @@ func oidToString(oid []int) (ret string) {
 	return strings.Join(oidAsString, ".")
 }
 
+// MrSpock changes. TODO NO tests for this yet - waiting for .pcap
+func ipv4toBytes(ip net.IP) []byte {
+	return []byte(ip)[12:]
+}
+
 // parseBase128Int parses a base-128 encoded int from the given offset in the
 // given byte slice. It returns the value and the new offset.
 func parseBase128Int(bytes []byte, initOffset int) (ret, offset int, err error) {

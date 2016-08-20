@@ -12,6 +12,7 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"sync/atomic"
 	"time"
 )
@@ -870,6 +871,29 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		// Sequence, length of oid + oid, then oid/oid data
 		pduBuf.WriteByte(byte(Sequence))
 		pduBuf.WriteByte(byte(len(oid) + len(oidBytes) + 4))
+		pduBuf.Write(tmpBuf.Bytes())
+
+	// MrSpock changes. TODO NO tests for this yet - waiting for .pcap
+	case IPAddress:
+		//Oid
+		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
+		tmpBuf.Write(oid)
+		//OctetString
+		var ipAddressBytes []byte
+		switch value := pdu.Value.(type) {
+		case []byte:
+			ipAddressBytes = value
+		case string:
+			ip := net.ParseIP(value)
+			ipAddressBytes = ipv4toBytes(ip)
+		default:
+			return nil, fmt.Errorf("Unable to marshal PDU IPAddress; not []byte or String.")
+		}
+		tmpBuf.Write([]byte{byte(IPAddress), byte(len(ipAddressBytes))})
+		tmpBuf.Write(ipAddressBytes)
+		// Sequence, length of oid + octetstring, then oid/octetstring data
+		pduBuf.WriteByte(byte(Sequence))
+		pduBuf.WriteByte(byte(len(oid) + len(ipAddressBytes) + 4))
 		pduBuf.Write(tmpBuf.Bytes())
 
 	default:
