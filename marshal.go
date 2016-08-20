@@ -734,8 +734,11 @@ func (packet *SnmpPacket) marshalVBL(pdus []SnmpPDU) ([]byte, error) {
 
 	vblBuf := new(bytes.Buffer)
 	for _, pdu := range pdus {
+		fmt.Printf("\n\nHERE1\n\n")
 		vb, err := marshalVarbind(&pdu)
 		if err != nil {
+			fmt.Printf("\n\nHERE2\n\n")
+			fmt.Printf("pdu is %v\n", pdu)
 			return nil, err
 		}
 		vblBuf.Write(vb)
