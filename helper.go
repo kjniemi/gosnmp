@@ -372,16 +372,8 @@ func marshalInt16(value int) (rs []byte, err error) {
 	return nil, fmt.Errorf("Unable to marshal %v", rs)
 }
 
-func marshalInteger(v interface{}) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.BigEndian, v)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func marshalTimeticks(v interface{}) ([]byte, error) {
+// Counter32, Gauge32, TimeTicks, Unsigned32
+func marshalUint32(v interface{}) ([]byte, error) {
 	bs := make([]byte, 4)
 	source := v.(uint32)
 	binary.BigEndian.PutUint32(bs, source) // will panic on failure

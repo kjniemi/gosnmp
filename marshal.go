@@ -784,11 +784,12 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 
 	case Integer:
 		// TODO tests currently only cover positive integers
+
 		// Oid
 		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
 		tmpBuf.Write(oid)
 
-		// Integer
+		// Number
 		var intBytes []byte
 		switch value := pdu.Value.(type) {
 		case byte:
@@ -807,7 +808,7 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		pduBuf.WriteByte(byte(len(oid) + len(intBytes) + 4))
 		pduBuf.Write(tmpBuf.Bytes())
 
-	case TimeTicks:
+	case Counter32, Gauge32, TimeTicks, Uinteger32:
 		// Oid
 		tmpBuf.Write([]byte{byte(ObjectIdentifier), byte(len(oid))})
 		tmpBuf.Write(oid)
@@ -816,10 +817,10 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 		var intBytes []byte
 		switch value := pdu.Value.(type) {
 		case uint32:
-			intBytes, err = marshalTimeticks(value)
+			intBytes, err = marshalUint32(value)
 			pdu.Check(err)
 		default:
-			return nil, fmt.Errorf("Unable to marshal PDU TimeTicks; unknown type")
+			return nil, fmt.Errorf("Unable to marshal PDU %v; unknown type", pdu.Type)
 		}
 		tmpBuf.Write([]byte{byte(pdu.Type), byte(len(intBytes))})
 		tmpBuf.Write(intBytes)
