@@ -204,7 +204,7 @@ var testsEnmarshal = []testsEnmarshalT{
 		0,
 		trap1,
 		"trap1",
-		0x10, // pdu start
+		0x0e, // pdu start
 		0x1c, // vbl start
 		0x82, // finish
 		[]testsEnmarshalVarbindPosition{
