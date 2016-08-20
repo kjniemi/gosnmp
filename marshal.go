@@ -820,7 +820,7 @@ func marshalVarbind(pdu *SnmpPDU) ([]byte, error) {
 			intBytes, err = marshalUint32(value)
 			pdu.Check(err)
 		default:
-			return nil, fmt.Errorf("Unable to marshal PDU %v; unknown type", pdu.Type)
+			return nil, fmt.Errorf("Unable to marshal pdu.Type %v; unknown pdu.Value %v", pdu.Type, pdu.Value)
 		}
 		tmpBuf.Write([]byte{byte(pdu.Type), byte(len(intBytes))})
 		tmpBuf.Write(intBytes)

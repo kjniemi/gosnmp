@@ -205,10 +205,10 @@ var testsEnmarshal = []testsEnmarshalT{
 		trap1,
 		"trap1",
 		0x10, // pdu start
-		0x1e, // vbl start
+		0x1c, // vbl start
 		0x82, // finish
 		[]testsEnmarshalVarbindPosition{
-			{".1.3.6.1.2.1.1.3.0", 0x1e, 0x2f, TimeTicks, uint32(1034156)},
+			{".1.3.6.1.2.1.1.3.0", 0x1e, 0x2f, TimeTicks, uint32(18542501)},
 			{".1.3.6.1.6.3.1.1.4.1.0", 0x30, 0x45, ObjectIdentifier, ".1.3.6.1.2.1.1"},
 			{".1.3.6.1.2.1.1.1.0", 0x46, 0x59, OctetString, "red laptop"},
 			{".1.3.6.1.2.1.1.7.0", 0x5e, 0x6c, Integer, 5},
