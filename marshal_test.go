@@ -24,20 +24,22 @@ type testsEnmarshalVarbindPosition struct {
 
 	/*
 		start and finish position of bytes are calculated with application layer
-		starting at byte 0. The easiest way to calculate these values is to
-		select "Simple Network Management Protocal" line in Wiresharks middle
-		pane, then right click and choose "Export Packet Bytes..." (as .raw)
+		starting at byte 0. There are two ways to understand Wireshark dumps,
+		switch between them:
 
-		Open the capture in wireshark, it will decode as "BER Encoded File".
+		1) the standard decode of the full packet - easier to understand
+		what's actually happening
 
-		On the Frame at top, right-click, Protocol Preferences, Open Frame Preferences,
-		BER, Decode OCTET STRING as....
+		2) for counting byte positions: select "Simple Network Management
+		Protocal" line in Wiresharks middle pane, then right click and choose
+		"Export Packet Bytes..." (as .raw). Open the capture in wireshark, it
+		will decode as "BER Encoded File". Click on each varbind and the
+		"packet bytes" window will highlight the corresponding bytes, then the
+		start and end positions can be found.
+	*/
 
-		Click on each varbind and the "packet bytes" window will highlight
-		the corresponding bytes, then the "eyeball tool" can be used to find the
-		start and finish values...
-
-		go-bindata has changed output format. Steps to get old style:
+	/*
+		go-bindata has changed output format. Old style is needed:
 
 		go get -u github.com/jteeuwen/go-bindata/...
 		git co 79847ab
@@ -262,13 +264,13 @@ func TestEnmarshalVarbind(t *testing.T) {
 	for _, test := range testsEnmarshal {
 		for j, test2 := range test.vbPositions {
 			snmppdu := &SnmpPDU{test2.oid, test2.pduType, test2.pduValue, nil}
-			_, err := marshalVarbind(snmppdu)
+			testBytes, err := marshalVarbind(snmppdu)
 			if err != nil {
 				t.Errorf("#%s:%d:%s err returned: %v",
 					test.funcName, j, test2.oid, err)
 			}
 
-			// checkByteEquality(t, test, testBytes, test2.start, test2.finish)
+			checkByteEquality(t, test, testBytes, test2.start, test2.finish)
 		}
 	}
 }

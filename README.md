@@ -167,6 +167,7 @@ The following BER types have been implemented:
 * 0x42 Gauge32
 * 0x43 TimeTicks
 * 0x46 Counter64
+* 0x47 Uinteger32
 * 0x80 NoSuchObject
 * 0x81 NoSuchInstance
 * 0x82 EndOfMibView
@@ -180,7 +181,6 @@ time or haven't been able to find example devices to query:
 * 0x07 ObjectDescription
 * 0x44 Opaque
 * 0x45 NsapAddress
-* 0x47 Uinteger32
 
 Packet Captures
 ---------------
